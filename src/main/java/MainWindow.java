@@ -134,7 +134,20 @@ public class MainWindow extends Application {
             addTaskWindow.show();
         });
 
+        // Delete Task functionality
+        deleteButton.setOnAction(event -> {
+            Task selectedTask = taskList.getSelectionModel().getSelectedItem();
 
+            // Verify that a task is selected, if not; warn user to select one
+            if (selectedTask == null) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "Please select a task to delete!");
+                alert.showAndWait();
+                return;
+            }
+
+            // Remove task from home page
+            taskList.getItems().remove(selectedTask);
+        });
 
 
         HBox buttonPanel = new HBox(10, addButton, deleteButton, editButton);
