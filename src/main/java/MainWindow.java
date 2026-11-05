@@ -134,6 +134,93 @@ public class MainWindow extends Application {
             addTaskWindow.show();
         });
 
+        // Edit Task functionality
+        editButton.setOnAction(event -> {
+            Task selectedTask = taskList.getSelectionModel().getSelectedItem();
+
+            if (selectedTask == null) {
+                Alert alert = new Alert(
+                    Alert.AlertType.WARNING,
+                    "Please select a task to edit!"
+                );
+                alert.showAndWait();
+                return;
+            }
+
+            // Open Edit Task window
+            Stage editTaskWindow = new Stage();
+            editTaskWindow.setTitle("Edit Task");
+            editTaskWindow.initOwner(stage);
+            editTaskWindow.setResizable(false);
+
+            // Fields to edit the selected task
+            TextField editNameField = new
+            TextField(selectedTask.name);
+            DatePicker editDueDateField = new
+            DatePicker(selectedTask.dueDate);
+            TextField editPointsField = new
+            TextField(String.valueOf(selectedTask.points));
+
+            // Arrange the edit fields
+            GridPane editFields = new GridPane();
+            editFields.setHgap(10);
+            editFields.setVgap(10);
+
+            editFields.addRow(0, new Label("Task Name:"), editNameField);
+            editFields.addRow(1, new Label("Due Date:"), editDueDateField);
+            editFields.addRow(2, new Label("Points:"), editPointsField);
+
+            // Buttons for Edit Task window
+            Button saveEditButton = new Button("Save Changes");
+            Button cancelEditButton = new Button ("Cancel");
+
+            // Close the window when Cancel is clicked
+            cancelEditButton.setOnAction(e -> editTaskWindow.close());
+
+            // Save the edited task
+            saveEditButton.setOnAction(e -> {
+                String newName = editNameField.getText().trim();
+                LocalDate newDate = editDueDateField.getValue();
+                int newPoints;
+
+                try {
+                    newPoints = Integer.parseInt(editPointsField.getText().trim());
+                } catch (NumberFormatException ex) {
+                    newPoints = -1;
+                }   
+
+                // Check for invalid input
+                if (newName.isEmpty() || newDate == null || newPoints < 0) {
+                    Alert alert = new Alert(
+                        Alert.AlertType.WARNING,
+                        "Please enter a task name, due date, and valid points."
+                    );
+                    alert.showAndWait();
+                    return;
+                }
+
+                // Replace the old task with the edited task
+                int index = taskList.getItems().indexOf(selectedTask);
+                taskList.getItems().set(index, new Task(newName, newDate, newPoints));
+
+                editTaskWindow.close();
+            });
+
+            // Arrange the buttons
+            HBox editButtons = new HBox(10, saveEditButton, cancelEditButton);
+            editButtons.setAlignment(Pos.CENTER_RIGHT);
+
+            // Edit Task window layout
+            VBox editLayout = new VBox(15, editFields, editButtons);
+            editLayout.setPadding(new Insets(20));
+
+            // Display Edit Task window
+            Scene editScene = new Scene(editLayout, 420, 230);
+            editTaskWindow.setScene(editScene);
+            editTaskWindow.show();
+
+             }); // End of Edit Task fuctionality
+
         // Delete Task functionality
         deleteButton.setOnAction(event -> {
             Task selectedTask = taskList.getSelectionModel().getSelectedItem();
