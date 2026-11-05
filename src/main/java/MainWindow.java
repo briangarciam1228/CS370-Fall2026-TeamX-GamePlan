@@ -96,6 +96,7 @@ public class MainWindow extends Application {
         Button addButton = new Button("Add Task");
         Button editButton = new Button("Edit Task");
         Button deleteButton = new Button("Delete Task");
+        Button settingsButton = new Button("Settings");
 
         addButton.setOnAction(event -> {
             //new window to add task
@@ -269,7 +270,7 @@ public class MainWindow extends Application {
         });
 
 
-        HBox buttonPanel = new HBox(10, addButton, deleteButton, editButton);
+        HBox buttonPanel = new HBox(10, addButton, deleteButton, editButton, settingsButton);
         buttonPanel.setAlignment(Pos.CENTER_LEFT);
         buttonPanel.setPadding(new Insets(0, 10, 0, 10)); //edited padding to align buttons order is (top, right, bot, left)
 
