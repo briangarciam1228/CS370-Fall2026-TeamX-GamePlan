@@ -3,7 +3,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -55,6 +57,36 @@ public class MainWindow extends Application {
         ListView<Task> taskList = new ListView<>();
         taskList.setPlaceholder(taskLabel);
 
+        // Each row shows a checkbox and the task text; checking it "completes" the task
+        taskList.setCellFactory(list -> new ListCell<>() {
+            private final CheckBox checkBox = new CheckBox();
+            private final Label label = new Label();
+            private final HBox row = new HBox(10, checkBox, label);
+
+            {
+                row.setAlignment(Pos.CENTER_LEFT);
+                checkBox.setOnAction(e -> {
+                    Task task = getItem();
+                    if (task != null && checkBox.isSelected()) {
+                        getListView().getItems().remove(task);
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(Task task, boolean empty) {
+                super.updateItem(task, empty);
+                setText(null);
+                if (empty || task == null) {
+                    setGraphic(null);
+                } else {
+                    checkBox.setSelected(false); // cells are reused, so reset the box
+                    label.setText(task.toString());
+                    setGraphic(row);
+                }
+            }
+        });        
+        
         VBox centerSection = new VBox(taskList);
         centerSection.setAlignment(Pos.CENTER);
         VBox.setVgrow(taskList, Priority.ALWAYS);
