@@ -1,5 +1,3 @@
-package com.example.lab5;
-
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -20,10 +18,11 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import javafx.application.Application;
 
 public class MainWindow extends Application {
 
-     static class Task{
+    static class Task{
         private final String name;
         private final LocalDate dueDate;
         private final int points;
@@ -35,19 +34,19 @@ public class MainWindow extends Application {
         }
 
 
-         public String getName() {
-             return name;
-         }
+        public String getName() {
+            return name;
+        }
 
-         public LocalDate getDueDate() {
-             return dueDate;
-         }
+        public LocalDate getDueDate() {
+            return dueDate;
+        }
 
-         public int getPoints() {
-             return points;
-         }
+        public int getPoints() {
+            return points;
+        }
 
-         @Override
+        @Override
         public String toString(){
             return name + " | Due: " + dueDate + " | Points: " + points;
         }
