@@ -1,6 +1,4 @@
 
-package com.example.lab5;
-
 import com.calendarfx.model.Calendar;
 import com.calendarfx.model.CalendarSource;
 import com.calendarfx.model.Entry;
