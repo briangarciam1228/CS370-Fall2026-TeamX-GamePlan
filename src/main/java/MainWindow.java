@@ -13,7 +13,9 @@ import javafx.stage.Stage;
 import javafx.scene.control.Alert;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.ListView;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import java.time.LocalDate;
@@ -37,11 +39,17 @@ public class MainWindow extends Application {
         private final String name;
         private final LocalDate dueDate;
         private final int points;
+        private final String description; // optional, empty if none given
 
         Task(String taskName, LocalDate taskDate, int taskPoints){
+            this(taskName, taskDate, taskPoints, "");
+        }
+
+        Task(String taskName, LocalDate taskDate, int taskPoints, String taskDescription){
             name = taskName;
             dueDate = taskDate;
             points = taskPoints;
+            description = taskDescription == null ? "" : taskDescription.trim();
         }
 
 
@@ -55,6 +63,14 @@ public class MainWindow extends Application {
 
         public int getPoints() {
             return points;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public boolean hasDescription() {
+            return !description.isEmpty();
         }
 
         @Override
@@ -86,10 +102,16 @@ public class MainWindow extends Application {
         taskList.setCellFactory(list -> new ListCell<>() {
             private final CheckBox checkBox = new CheckBox();
             private final Label label = new Label();
-            private final HBox row = new HBox(10, checkBox, label);
+            private final Label descriptionLabel = new Label();
+            private final VBox text = new VBox(2, label, descriptionLabel);
+            private final HBox row = new HBox(10, checkBox, text);
 
             {
                 row.setAlignment(Pos.CENTER_LEFT);
+                descriptionLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
+                descriptionLabel.setWrapText(true);
+                // Hidden descriptions take up no space
+                descriptionLabel.managedProperty().bind(descriptionLabel.visibleProperty());
                 checkBox.setOnAction(e -> {
                     Task task = getItem();
                     if (task != null && checkBox.isSelected()) {
@@ -107,6 +129,8 @@ public class MainWindow extends Application {
                 } else {
                     checkBox.setSelected(false); // cells are reused, so reset the box
                     label.setText(task.toString());
+                    descriptionLabel.setText(task.getDescription());
+                    descriptionLabel.setVisible(task.hasDescription());
                     setGraphic(row);
                 }
             }
@@ -135,12 +159,19 @@ public class MainWindow extends Application {
             TextField nameField = new TextField();
             DatePicker dueDateField = new DatePicker();
             TextField pointsField = new TextField();
+            TextArea descriptionField = new TextArea();
+            descriptionField.setPromptText("Optional: add any extra details");
+            descriptionField.setPrefRowCount(3);
+            descriptionField.setPrefColumnCount(20); // default is 40, too wide for the window
+            descriptionField.setWrapText(true);
             GridPane fields = new GridPane();
             fields.setHgap(10);
             fields.setVgap(10);
+            setupFormColumns(fields);
             fields.addRow(0, new Label("Task Name:"), nameField);
             fields.addRow(1, new Label("Due Date:"), dueDateField);
             fields.addRow(2, new Label("Points:"), pointsField);
+            fields.addRow(3, new Label("Description:"), descriptionField);
 
             //buttons to save and cancel - add task
             Button saveButton = new Button("Save Task");
@@ -173,7 +204,7 @@ public class MainWindow extends Application {
                 }
 
                 // Add task to home page
-                taskList.getItems().add(new Task(taskName, taskDate, taskPoints));
+                taskList.getItems().add(new Task(taskName, taskDate, taskPoints, descriptionField.getText()));
 
                 // Close the Add Task window
                 addTaskWindow.close();
@@ -188,7 +219,7 @@ public class MainWindow extends Application {
             popupLayout.setPadding(new Insets(20));
 
             // Display popup window
-            Scene popupScene = new Scene(popupLayout, 420, 230);
+            Scene popupScene = new Scene(popupLayout, 420, 250);
             addTaskWindow.setScene(popupScene);
             addTaskWindow.show();
         });
@@ -219,15 +250,22 @@ public class MainWindow extends Application {
                     DatePicker(selectedTask.dueDate);
             TextField editPointsField = new
                     TextField(String.valueOf(selectedTask.points));
+            TextArea editDescriptionField = new TextArea(selectedTask.description);
+            editDescriptionField.setPromptText("Optional: add any extra details");
+            editDescriptionField.setPrefRowCount(3);
+            editDescriptionField.setPrefColumnCount(20); // default is 40, too wide for the window
+            editDescriptionField.setWrapText(true);
 
             // Arrange the edit fields
             GridPane editFields = new GridPane();
             editFields.setHgap(10);
             editFields.setVgap(10);
 
+            setupFormColumns(editFields);
             editFields.addRow(0, new Label("Task Name:"), editNameField);
             editFields.addRow(1, new Label("Due Date:"), editDueDateField);
             editFields.addRow(2, new Label("Points:"), editPointsField);
+            editFields.addRow(3, new Label("Description:"), editDescriptionField);
 
             // Buttons for Edit Task window
             Button saveEditButton = new Button("Save Changes");
@@ -260,7 +298,7 @@ public class MainWindow extends Application {
 
                 // Replace the old task with the edited task
                 int index = taskList.getItems().indexOf(selectedTask);
-                taskList.getItems().set(index, new Task(newName, newDate, newPoints));
+                taskList.getItems().set(index, new Task(newName, newDate, newPoints, editDescriptionField.getText()));
 
                 editTaskWindow.close();
             });
@@ -274,7 +312,7 @@ public class MainWindow extends Application {
             editLayout.setPadding(new Insets(20));
 
             // Display Edit Task window
-            Scene editScene = new Scene(editLayout, 420, 230);
+            Scene editScene = new Scene(editLayout, 420, 250);
             editTaskWindow.setScene(editScene);
             editTaskWindow.show();
 
@@ -348,6 +386,16 @@ public class MainWindow extends Application {
         stage.show();
     }
 
+    // Label column never shrinks (so labels don't turn into "..."); field column fills the rest
+    private static void setupFormColumns(GridPane grid) {
+        ColumnConstraints labelColumn = new ColumnConstraints();
+        labelColumn.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        ColumnConstraints fieldColumn = new ColumnConstraints();
+        fieldColumn.setHgrow(Priority.ALWAYS);
+        fieldColumn.setFillWidth(true);
+        grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
+    }
+
     // Remove a task and remember it so it can be undone
     private void removeTask(ListView<Task> taskList, Task task, String action) {
         int index = taskList.getItems().indexOf(task);
@@ -379,4 +427,3 @@ public class MainWindow extends Application {
         launch(args);
     }
 }
-
