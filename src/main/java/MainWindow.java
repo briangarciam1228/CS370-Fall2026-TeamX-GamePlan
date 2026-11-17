@@ -18,9 +18,20 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import javafx.application.Application;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class MainWindow extends Application {
+
+    // A removed task, where it was in the list, and why it was removed
+    private record RemovedTask(Task task, int index, String action) {}
+
+    // Most recent removal is on top, so undo restores newest first
+    private final Deque<RemovedTask> undoStack = new ArrayDeque<>();
+    private final Button undoButton = new Button("Undo");
 
     static class Task{
         private final String name;
@@ -82,7 +93,7 @@ public class MainWindow extends Application {
                 checkBox.setOnAction(e -> {
                     Task task = getItem();
                     if (task != null && checkBox.isSelected()) {
-                        getListView().getItems().remove(task);
+                        removeTask(getListView(), task, "Complete");
                     }
                 });
             }
@@ -280,8 +291,8 @@ public class MainWindow extends Application {
                 return;
             }
 
-            // Remove task from home page
-            taskList.getItems().remove(selectedTask);
+            // Remove task from home page (can be undone)
+            removeTask(taskList, selectedTask, "Delete");
         });
 
 // Create the calendar window
@@ -303,11 +314,16 @@ public class MainWindow extends Application {
         });
 
 
+        // Undo the most recent delete/complete
+        undoButton.setOnAction(e -> undo(taskList));
+        updateUndoButton(); // starts disabled
+
         HBox buttonPanel = new HBox(
                 10,
                 addButton,
                 deleteButton,
                 editButton,
+                undoButton,
                 settingsButton,
                 calendarButton
         );
@@ -323,12 +339,44 @@ public class MainWindow extends Application {
 
         // Display window
         Scene scene = new Scene(root, 800, 500);
+        // Cmd+Z on Mac, Ctrl+Z on Windows/Linux
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
+                () -> undo(taskList));
         stage.setTitle("GamePlan - Task Manager");
         stage.setScene(scene);
         stage.show();
+    }
+
+    // Remove a task and remember it so it can be undone
+    private void removeTask(ListView<Task> taskList, Task task, String action) {
+        int index = taskList.getItems().indexOf(task);
+        if (index < 0) return;
+        undoStack.push(new RemovedTask(task, index, action));
+        taskList.getItems().remove(index);
+        updateUndoButton();
+    }
+
+    // Put the most recently removed task back where it was
+    private void undo(ListView<Task> taskList) {
+        RemovedTask last = undoStack.poll();
+        if (last == null) return;
+        // Clamp in case the list got shorter since the removal
+        int index = Math.min(last.index(), taskList.getItems().size());
+        taskList.getItems().add(index, last.task());
+        taskList.getSelectionModel().select(index);
+        updateUndoButton();
+    }
+
+    // Disable the button when there's nothing to undo; otherwise say what it will undo
+    private void updateUndoButton() {
+        RemovedTask last = undoStack.peek();
+        undoButton.setDisable(last == null);
+        undoButton.setText(last == null ? "Undo" : "Undo");
     }
 
     public static void main(String[] args) {
         launch(args);
     }
 }
+
