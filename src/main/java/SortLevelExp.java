@@ -10,12 +10,10 @@ public class SortLevelExp extends HBox{
 
         setSpacing(20); //spacing between
 
-        Button sortB = new Button("Sort"); //sort button
-
         Label levelL = new Label("Level"); //Level label
 
         Label expL = new Label("0/5 EXP"); //Exp label
 
-        getChildren().addAll(sortB, levelL, expL);
+        getChildren().addAll(levelL, expL);
     }
 }
