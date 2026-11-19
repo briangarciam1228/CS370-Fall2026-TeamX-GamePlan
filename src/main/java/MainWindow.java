@@ -11,6 +11,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
@@ -115,7 +116,20 @@ public class MainWindow extends Application {
                 checkBox.setOnAction(e -> {
                     Task task = getItem();
                     if (task != null && checkBox.isSelected()) {
-                        removeTask(getListView(), task, "Complete");
+                        // Ask the user to confirm before completing the task
+                        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                                "Are you sure you want to complete the task?",
+                                ButtonType.YES, ButtonType.NO);
+                        confirm.setTitle("Complete Task");
+                        confirm.setHeaderText(null);
+                        boolean confirmed = confirm.showAndWait()
+                                .filter(response -> response == ButtonType.YES)
+                                .isPresent();
+                        if (confirmed) {
+                            removeTask(getListView(), task, "Complete");
+                        } else {
+                            checkBox.setSelected(false); // user cancelled, so uncheck the box
+                        }
                     }
                 });
             }
