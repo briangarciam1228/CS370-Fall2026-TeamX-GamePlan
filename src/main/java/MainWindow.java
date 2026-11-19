@@ -5,27 +5,36 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
-import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 
 public class MainWindow extends Application {
 
@@ -35,6 +44,9 @@ public class MainWindow extends Application {
     // Most recent removal is on top, so undo restores newest first
     private final Deque<RemovedTask> undoStack = new ArrayDeque<>();
     private final Button undoButton = new Button("Undo");
+
+    // How due dates are shown in the task table, e.g. "Nov 21, 2026"
+    private static final DateTimeFormatter DUE_DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy");
 
     static class Task{
         private final String name;
@@ -88,31 +100,33 @@ public class MainWindow extends Application {
         Label titleLabel = new Label("Welcome to GamePlan!");
         titleLabel.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
 
-        VBox topSection = new VBox(titleLabel);
+        // Title on top, then the menu bar (buttons and level) underneath it
+        VBox topSection = new VBox(10, titleLabel);
         topSection.setAlignment(Pos.CENTER);
-        topSection.setPadding(new Insets(20));
+        topSection.setPadding(new Insets(15));
         root.setTop(topSection);
 
         //task list
         Label taskLabel = new Label("Your tasks will appear here.");
-        //display tasks
-        ListView<Task> taskList = new ListView<>();
+        //display tasks in a table; click a column header to sort by it
+        TableView<Task> taskList = new TableView<>();
         taskList.setPlaceholder(taskLabel);
+        // Columns share the table's width, so there's no blank space or sideways scrolling
+        taskList.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
-        // Each row shows a checkbox and the task text; checking it "completes" the task
-        taskList.setCellFactory(list -> new ListCell<>() {
+        // Checkbox column: checking the box "completes" the task
+        TableColumn<Task, Task> doneColumn = new TableColumn<>("");
+        doneColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(cell.getValue()));
+        doneColumn.setSortable(false);
+        doneColumn.setReorderable(false);
+        doneColumn.setResizable(false);
+        doneColumn.setMinWidth(40);
+        doneColumn.setMaxWidth(40);
+        doneColumn.setCellFactory(column -> new TableCell<>() {
             private final CheckBox checkBox = new CheckBox();
-            private final Label label = new Label();
-            private final Label descriptionLabel = new Label();
-            private final VBox text = new VBox(2, label, descriptionLabel);
-            private final HBox row = new HBox(10, checkBox, text);
 
             {
-                row.setAlignment(Pos.CENTER_LEFT);
-                descriptionLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: gray;");
-                descriptionLabel.setWrapText(true);
-                // Hidden descriptions take up no space
-                descriptionLabel.managedProperty().bind(descriptionLabel.visibleProperty());
+                setAlignment(Pos.CENTER);
                 checkBox.setOnAction(e -> {
                     Task task = getItem();
                     if (task != null && checkBox.isSelected()) {
@@ -126,7 +140,7 @@ public class MainWindow extends Application {
                                 .filter(response -> response == ButtonType.YES)
                                 .isPresent();
                         if (confirmed) {
-                            removeTask(getListView(), task, "Complete");
+                            removeTask(getTableView(), task, "Complete");
                         } else {
                             checkBox.setSelected(false); // user cancelled, so uncheck the box
                         }
@@ -137,25 +151,75 @@ public class MainWindow extends Application {
             @Override
             protected void updateItem(Task task, boolean empty) {
                 super.updateItem(task, empty);
-                setText(null);
+                checkBox.setSelected(false); // cells are reused, so reset the box
+                setGraphic(empty || task == null ? null : checkBox);
+            }
+        });
+
+        // Task name column, with the optional description in gray underneath; sorts A-Z by name
+        TableColumn<Task, Task> nameColumn = new TableColumn<>("Task");
+        nameColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(cell.getValue()));
+        nameColumn.setComparator(Comparator.comparing(Task::getName, String.CASE_INSENSITIVE_ORDER));
+        nameColumn.setPrefWidth(400);
+        nameColumn.setCellFactory(column -> new TableCell<>() {
+            private final Label nameLabel = new Label();
+            // A Text node (not a wrapping Label) so the row is only as tall as the wrapped lines;
+            // a wrapping Label in a table cell gets measured as one character per line
+            private final Text descriptionLabel = new Text();
+            private final VBox text = new VBox(2, nameLabel, descriptionLabel);
+
+            {
+                descriptionLabel.setFont(Font.font(11));
+                descriptionLabel.setFill(Color.GRAY);
+                // Wrap long descriptions to the column's width (minus the cell's padding)
+                descriptionLabel.wrappingWidthProperty().bind(column.widthProperty().subtract(16));
+                // Hidden descriptions take up no space
+                descriptionLabel.managedProperty().bind(descriptionLabel.visibleProperty());
+            }
+
+            @Override
+            protected void updateItem(Task task, boolean empty) {
+                super.updateItem(task, empty);
                 if (empty || task == null) {
                     setGraphic(null);
                 } else {
-                    checkBox.setSelected(false); // cells are reused, so reset the box
-                    label.setText(task.toString());
+                    nameLabel.setText(task.getName());
                     descriptionLabel.setText(task.getDescription());
                     descriptionLabel.setVisible(task.hasDescription());
-                    setGraphic(row);
+                    setGraphic(text);
                 }
             }
         });
+
+        // Due date column; sorts by date (earliest first)
+        TableColumn<Task, LocalDate> dueColumn = new TableColumn<>("Due Date");
+        dueColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(cell.getValue().getDueDate()));
+        dueColumn.setPrefWidth(120);
+        dueColumn.setMaxWidth(160);
+        dueColumn.setStyle("-fx-alignment: CENTER;");
+        dueColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                setText(empty || date == null ? null : date.format(DUE_DATE_FORMAT));
+            }
+        });
+
+        // Points column; sorts numerically
+        TableColumn<Task, Integer> pointsColumn = new TableColumn<>("Points");
+        pointsColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(cell.getValue().getPoints()));
+        pointsColumn.setPrefWidth(80);
+        pointsColumn.setMaxWidth(100);
+        pointsColumn.setStyle("-fx-alignment: CENTER;");
+
+        taskList.getColumns().addAll(List.of(doneColumn, nameColumn, dueColumn, pointsColumn));
 
         VBox centerSection = new VBox(taskList);
         centerSection.setAlignment(Pos.CENTER);
         VBox.setVgrow(taskList, Priority.ALWAYS);
         root.setCenter(centerSection);
 
-        // Buttons (functionality will be added later)
+        // Buttons
         Button addButton = new Button("Add Task");
         Button editButton = new Button("Edit Task");
         Button deleteButton = new Button("Delete Task");
@@ -174,7 +238,7 @@ public class MainWindow extends Application {
             DatePicker dueDateField = new DatePicker();
             TextField pointsField = new TextField();
             TextArea descriptionField = new TextArea();
-            descriptionField.setPromptText("Optional: add any extra details");
+            descriptionField.setPromptText("Optional: Add any extra details");
             descriptionField.setPrefRowCount(3);
             descriptionField.setPrefColumnCount(20); // default is 40, too wide for the window
             descriptionField.setWrapText(true);
@@ -219,6 +283,7 @@ public class MainWindow extends Application {
 
                 // Add task to home page
                 taskList.getItems().add(new Task(taskName, taskDate, taskPoints, descriptionField.getText()));
+                taskList.sort(); // put the new task in the right spot if a column is sorted
 
                 // Close the Add Task window
                 addTaskWindow.close();
@@ -313,6 +378,7 @@ public class MainWindow extends Application {
                 // Replace the old task with the edited task
                 int index = taskList.getItems().indexOf(selectedTask);
                 taskList.getItems().set(index, new Task(newName, newDate, newPoints, editDescriptionField.getText()));
+                taskList.sort(); // edited values may change where the task belongs
 
                 editTaskWindow.close();
             });
@@ -370,28 +436,33 @@ public class MainWindow extends Application {
         undoButton.setOnAction(e -> undo(taskList));
         updateUndoButton(); // starts disabled
 
-        HBox buttonPanel = new HBox(
-                10,
-                addButton,
-                deleteButton,
-                editButton,
-                undoButton,
-                settingsButton,
-                calendarButton
-        );
-        buttonPanel.setAlignment(Pos.CENTER_LEFT);
-        buttonPanel.setPadding(new Insets(0, 10, 0, 10)); //edited padding to align buttons order is (top, right, bot, left)
+        // Task buttons, centered under the title
+        HBox taskButtons = new HBox(10, addButton, deleteButton, editButton, undoButton);
+        taskButtons.setAlignment(Pos.CENTER);
+        taskButtons.setMaxWidth(Region.USE_PREF_SIZE); // only as wide as the buttons, so it stays centered
 
-        //topSection.getChildren().add(buttonPanel); replacing this to align the buttons at top and align SortLevelExp
-        BorderPane Menu = new BorderPane(); //make top menu
+        // Other buttons on the right (Settings and Calendar may move later)
+        HBox otherButtons = new HBox(10, settingsButton, calendarButton);
+        otherButtons.setAlignment(Pos.CENTER_RIGHT);
 
-        Menu.setLeft(buttonPanel);
-        Menu.setRight(new SortLevelExp());
-        topSection.getChildren().add(0, Menu);
+        // Level/EXP on the left, other buttons on the right
+        BorderPane sideItems = new BorderPane();
+        SortLevelExp levelExp = new SortLevelExp();
+        levelExp.setAlignment(Pos.CENTER_LEFT);
+        sideItems.setLeft(levelExp);
+        sideItems.setRight(otherButtons);
+        BorderPane.setAlignment(levelExp, Pos.CENTER_LEFT);
+        BorderPane.setAlignment(otherButtons, Pos.CENTER_RIGHT);
+        sideItems.setPickOnBounds(false); // let clicks in its empty middle reach the task buttons
+
+        // Stack the centered task buttons over the side items so the buttons are centered
+        // on the whole window, not just on the space between the side items
+        StackPane menu = new StackPane(sideItems, taskButtons);
+        menu.setPadding(new Insets(0, 10, 0, 10)); // order is (top, right, bottom, left)
+        topSection.getChildren().add(menu); // below the title
 
         // Display window
         Scene scene = new Scene(root, 800, 500);
-        // Cmd+Z on Mac, Ctrl+Z on Windows/Linux
         scene.getAccelerators().put(
                 new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
                 () -> undo(taskList));
@@ -411,7 +482,7 @@ public class MainWindow extends Application {
     }
 
     // Remove a task and remember it so it can be undone
-    private void removeTask(ListView<Task> taskList, Task task, String action) {
+    private void removeTask(TableView<Task> taskList, Task task, String action) {
         int index = taskList.getItems().indexOf(task);
         if (index < 0) return;
         undoStack.push(new RemovedTask(task, index, action));
@@ -420,13 +491,14 @@ public class MainWindow extends Application {
     }
 
     // Put the most recently removed task back where it was
-    private void undo(ListView<Task> taskList) {
+    private void undo(TableView<Task> taskList) {
         RemovedTask last = undoStack.poll();
         if (last == null) return;
         // Clamp in case the list got shorter since the removal
         int index = Math.min(last.index(), taskList.getItems().size());
         taskList.getItems().add(index, last.task());
-        taskList.getSelectionModel().select(index);
+        taskList.sort(); // keep the current column sort, if any
+        taskList.getSelectionModel().select(last.task());
         updateUndoButton();
     }
 
