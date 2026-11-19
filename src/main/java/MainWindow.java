@@ -35,6 +35,9 @@ import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
 
 public class MainWindow extends Application {
 
@@ -47,6 +50,9 @@ public class MainWindow extends Application {
 
     // How due dates are shown in the task table, e.g. "Nov 21, 2026"
     private static final DateTimeFormatter DUE_DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy");
+    //Creates a array of finished tasks
+    private final ObservableList<Task> completedTasks =
+            FXCollections.observableArrayList();
 
     static class Task{
         private final String name;
@@ -225,6 +231,20 @@ public class MainWindow extends Application {
         Button deleteButton = new Button("Delete Task");
         Button settingsButton = new Button("Settings");
         Button calendarButton = new Button("Calendar");
+        Button completeButton = new Button("Complete");
+
+        //Complete button action
+        completeButton.setOnAction(e -> {
+            Stage completedWindow = new Stage();
+            completedWindow.setTitle("GamePlan - Completed Tasks");
+            completedWindow.initOwner(stage);
+
+            CompletedTasksWindow completedView =
+                    new CompletedTasksWindow(completedTasks);
+
+            completedWindow.setScene(new Scene(completedView, 600, 400));
+            completedWindow.show();
+        });
 
         addButton.setOnAction(event -> {
             //new window to add task
@@ -442,7 +462,7 @@ public class MainWindow extends Application {
         taskButtons.setMaxWidth(Region.USE_PREF_SIZE); // only as wide as the buttons, so it stays centered
 
         // Other buttons on the right (Settings and Calendar may move later)
-        HBox otherButtons = new HBox(10, settingsButton, calendarButton);
+        HBox otherButtons = new HBox(10, completeButton, settingsButton, calendarButton);
         otherButtons.setAlignment(Pos.CENTER_RIGHT);
 
         // Level/EXP on the left, other buttons on the right
@@ -486,6 +506,10 @@ public class MainWindow extends Application {
         int index = taskList.getItems().indexOf(task);
         if (index < 0) return;
         undoStack.push(new RemovedTask(task, index, action));
+        // Only completed tasks go into the completed table
+        if (action.equals("Complete")) {
+            completedTasks.add(task);
+        }
         taskList.getItems().remove(index);
         updateUndoButton();
     }
@@ -494,6 +518,9 @@ public class MainWindow extends Application {
     private void undo(TableView<Task> taskList) {
         RemovedTask last = undoStack.poll();
         if (last == null) return;
+        if (last.action().equals("Complete")) {
+            completedTasks.remove(last.task());
+        }
         // Clamp in case the list got shorter since the removal
         int index = Math.min(last.index(), taskList.getItems().size());
         taskList.getItems().add(index, last.task());
